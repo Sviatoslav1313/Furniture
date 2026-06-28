@@ -963,6 +963,12 @@ header:not(.scrolled) {
     justify-content: center;
     font-size: 1rem;
     font-weight: 600;
+    color: inherit;
+    transition: var(--transition-fast);
+}
+
+.qty-btn:hover {
+    color: var(--color-accent);
 }
 
 .qty-val {
@@ -1059,9 +1065,16 @@ header:not(.scrolled) {
     position: absolute;
     top: 20px;
     right: 20px;
-    font-size: 1.8rem;
+    font-size: 1.4rem;
     color: var(--color-text-dark);
     z-index: 10;
+    opacity: 0.7;
+    transition: var(--transition-fast);
+}
+
+.modal-close-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
 }
 
 .modal-gallery {
@@ -1197,6 +1210,7 @@ header:not(.scrolled) {
     font-size: 2rem;
     font-weight: 500;
     margin-bottom: 12px;
+    padding-right: 32px;
 }
 
 .modal-rating-container {
@@ -1399,7 +1413,7 @@ footer {
 }
 
 .footer-links a:hover {
-    color: var(--color-text-light);
+    color: #FFFFFF;
     transform: translateX(4px);
 }
 
@@ -1430,7 +1444,7 @@ footer {
 }
 
 .sitenest-footer-link:hover {
-    color: var(--color-text-light);
+    color: #FFFFFF;
     text-shadow: 0 0 8px rgba(197, 168, 128, 0.3);
 }
 

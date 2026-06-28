@@ -17,8 +17,8 @@ export async function POST(request) {
     }
 
     // Check if user already exists
-    const checkStmt = db.prepare('SELECT * FROM users WHERE email = ?');
-    const existingUser = checkStmt.get(email.toLowerCase());
+    const checkRes = await db.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase()]);
+    const existingUser = checkRes.rows[0];
 
     if (existingUser) {
       return NextResponse.json({ error: 'Ця електронна адреса вже зареєстрована' }, { status: 400 });
@@ -32,8 +32,10 @@ export async function POST(request) {
     const token = crypto.randomBytes(32).toString('hex');
 
     // Save to DB
-    const insertStmt = db.prepare('INSERT INTO users (email, password_hash, verification_token) VALUES (?, ?, ?)');
-    insertStmt.run(email.toLowerCase(), passwordHash, token);
+    await db.query(
+      'INSERT INTO users (email, password_hash, verification_token) VALUES ($1, $2, $3)',
+      [email.toLowerCase(), passwordHash, token]
+    );
 
     // Send email
     await sendVerificationEmail(email, token);

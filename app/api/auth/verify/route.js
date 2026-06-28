@@ -10,15 +10,14 @@ export async function GET(request) {
       return NextResponse.redirect(new URL('/?verified=false&error=missing_token', request.url));
     }
 
-    const stmt = db.prepare('SELECT * FROM users WHERE verification_token = ?');
-    const user = stmt.get(token);
+    const checkRes = await db.query('SELECT * FROM users WHERE verification_token = $1', [token]);
+    const user = checkRes.rows[0];
 
     if (!user) {
       return NextResponse.redirect(new URL('/?verified=false&error=invalid_token', request.url));
     }
 
-    const updateStmt = db.prepare('UPDATE users SET is_verified = 1, verification_token = NULL WHERE id = ?');
-    updateStmt.run(user.id);
+    await db.query('UPDATE users SET is_verified = 1, verification_token = NULL WHERE id = $1', [user.id]);
 
     return NextResponse.redirect(new URL('/?verified=true', request.url));
 

@@ -12,8 +12,8 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Заповніть усі поля' }, { status: 400 });
     }
 
-    const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
-    const user = stmt.get(email.toLowerCase());
+    const checkRes = await db.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase()]);
+    const user = checkRes.rows[0];
 
     if (!user) {
       return NextResponse.json({ error: 'Невірна пошта або пароль' }, { status: 400 });

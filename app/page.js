@@ -4,6 +4,11 @@ import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PRODUCTS } from '@/lib/products';
 
+const validatePhone = (phone) => {
+  const cleaned = phone.replace(/[^\d+]/g, '');
+  return /^\+?\d{7,15}$/.test(cleaned);
+};
+
 function MainShop() {
   // --- STATE ---
   const [cart, setCart] = useState([]);
@@ -35,6 +40,7 @@ function MainShop() {
   const [bookingName, setBookingName] = useState('');
   const [bookingPhone, setBookingPhone] = useState('');
   const [bookingTime, setBookingTime] = useState('');
+  const [minDateTime, setMinDateTime] = useState('');
   const [checkoutName, setCheckoutName] = useState('');
   const [checkoutPhone, setCheckoutPhone] = useState('');
   const [checkoutAddress, setCheckoutAddress] = useState('');
@@ -58,6 +64,15 @@ function MainShop() {
   const [authSuccess, setAuthSuccess] = useState('');
 
   const searchParams = useSearchParams();
+
+  // Sync min date-time when visit modal opens
+  useEffect(() => {
+    if (visitModalOpen) {
+      const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+      const localISOTime = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
+      setMinDateTime(localISOTime);
+    }
+  }, [visitModalOpen]);
 
   // --- TOAST HELPER ---
   const showToast = (message) => {
@@ -187,9 +202,11 @@ function MainShop() {
         (item) => item.product.id === product.id && item.color === selectedCol
       );
       if (existingIdx > -1) {
-        const newCart = [...prevCart];
-        newCart[existingIdx].quantity += quantity;
-        return newCart;
+        return prevCart.map((item, idx) => 
+          idx === existingIdx 
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        );
       } else {
         return [...prevCart, { product, quantity, color: selectedCol }];
       }
@@ -198,15 +215,15 @@ function MainShop() {
   };
 
   const updateCartQty = (index, delta) => {
-    setCart((prevCart) => {
-      const newCart = [...prevCart];
-      const newQty = newCart[index].quantity + delta;
-      if (newQty > 0) {
-        newCart[index].quantity = newQty;
-        return newCart;
-      }
-      return prevCart;
-    });
+    setCart((prevCart) =>
+      prevCart.map((item, idx) => {
+        if (idx === index) {
+          const newQty = item.quantity + delta;
+          return { ...item, quantity: newQty > 0 ? newQty : item.quantity };
+        }
+        return item;
+      })
+    );
   };
 
   const removeCartItem = (index) => {
@@ -378,6 +395,16 @@ function MainShop() {
   // --- VISIT BOOKING SUBMIT ---
   const handleVisitSubmit = (e) => {
     e.preventDefault();
+    if (!validatePhone(bookingPhone)) {
+      showToast('Помилка: Введіть коректний номер телефону (наприклад: +380991234567 або міжнародний формат)');
+      return;
+    }
+    const selectedDate = new Date(bookingTime);
+    const now = new Date();
+    if (selectedDate < now) {
+      showToast('Помилка: Обрана дата та час вже минули. Будь ласка, оберіть майбутній час.');
+      return;
+    }
     setVisitModalOpen(false);
     setBookingName('');
     setBookingPhone('');
@@ -386,14 +413,56 @@ function MainShop() {
   };
 
   // --- CHECKOUT SUBMIT ---
-  const handleCheckoutSubmit = (e) => {
+  const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
-    setCart([]);
-    setCheckoutModalOpen(false);
-    setCheckoutName('');
-    setCheckoutPhone('');
-    setCheckoutAddress('');
-    showToast(`Дякуємо за покупку, ${checkoutName}! Наш менеджер зв'яжеться з вами найближчим часом.`);
+    if (!currentUser) {
+      showToast('Помилка: Ви повинні увійти в акаунт для оформлення замовлення.');
+      return;
+    }
+    if (!validatePhone(checkoutPhone)) {
+      showToast('Помилка: Введіть коректний номер телефону (наприклад: +380991234567 або міжнародний формат)');
+      return;
+    }
+
+    const orderItems = cart.map(item => ({
+      name: item.product.name,
+      quantity: item.quantity,
+      price: item.product.price,
+      color: item.color || item.product.colors[0]
+    }));
+
+    try {
+      const response = await fetch('/api/order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customerName: checkoutName,
+          customerPhone: checkoutPhone,
+          customerAddress: checkoutAddress,
+          customerEmail: currentUser.email,
+          items: orderItems,
+          total: cartTotal,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        showToast(`Помилка: ${data.error || 'Не вдалося надіслати замовлення'}`);
+        return;
+      }
+
+      setCart([]);
+      setCheckoutModalOpen(false);
+      setCheckoutName('');
+      setCheckoutPhone('');
+      setCheckoutAddress('');
+      showToast(`Дякуємо за покупку, ${checkoutName}! Замовлення успішно оформлено та надіслано.`);
+    } catch (error) {
+      console.error('Checkout error:', error);
+      showToast('Помилка зв\'язку з сервером. Спробуйте пізніше.');
+    }
   };
 
   // --- NEWSLETTER SUBMIT ---
@@ -1080,6 +1149,13 @@ function MainShop() {
                 showToast('Ваш кошик порожній. Додайте товари для замовлення.');
                 return;
               }
+              if (!currentUser) {
+                showToast('Будь ласка, увійдіть в акаунт або зареєструйтеся, щоб оформити замовлення.');
+                setCartOpen(false);
+                setAuthTab('login');
+                setAuthModalOpen(true);
+                return;
+              }
               setCartOpen(false);
               setCheckoutModalOpen(true);
             }}
@@ -1294,7 +1370,7 @@ function MainShop() {
                 </div>
                 <div style={{ marginBottom: '20px' }}>
                   <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--color-text)' }}>Бажана дата та час</label>
-                  <input type="datetime-local" required value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} className="newsletter-input" style={{ width: '100%', border: '1px solid var(--color-border)', borderRadius: '4px', padding: '12px', fontFamily: 'inherit' }} />
+                  <input type="datetime-local" required value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} min={minDateTime} className="newsletter-input" style={{ width: '100%', border: '1px solid var(--color-border)', borderRadius: '4px', padding: '12px', fontFamily: 'inherit' }} />
                 </div>
                 <button type="submit" class="btn btn-primary" style={{ width: '100%', padding: '14px' }}>Підтвердити запис</button>
               </form>
