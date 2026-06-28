@@ -970,11 +970,7 @@ function MainShop() {
                 KRONA<span className="logo-dot"></span>
               </a>
               <p className="footer-about-text">Студія меблів, яка поєднує сучасний мінімалізм та тепло натуральних матеріалів для створення затишку у вашому домі.</p>
-              <div className="footer-socials">
-                <a href="#" className="social-link"><i className="fa-brands fa-instagram"></i></a>
-                <a href="#" className="social-link"><i className="fa-brands fa-facebook-f"></i></a>
-                <a href="#" className="social-link"><i className="fa-brands fa-pinterest"></i></a>
-              </div>
+
             </div>
             <div>
               <h4 className="footer-col-title">Інформація</h4>
